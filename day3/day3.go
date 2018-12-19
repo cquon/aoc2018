@@ -104,24 +104,35 @@ func newClaim(entry string) (*claim, error) {
 	return &c, nil
 }
 
-func (c *claim) updateGrid(inputGrid map[int]map[int]bool, count *int) {
+func (c *claim) updateGrid(inputGrid map[int]map[int][]int, count *int, noOverlaps map[int]struct{}) {
+	hasOverlap := false
 	for x := c.leftStart; x < c.leftStart+c.width; x++ {
 		if _, exists := inputGrid[x]; !exists {
-			inputGrid[x] = make(map[int]bool)
+			inputGrid[x] = make(map[int][]int)
 		}
 		for y := c.topStart; y < c.topStart+c.height; y++ {
 			if _, exists := inputGrid[x][y]; !exists {
-				inputGrid[x][y] = false
+				inputGrid[x][y] = make([]int,1)
+				inputGrid[x][y][0] = c.id
 			} else {
 				// map already exists, so it's a duplicate entry
-				
+				hasOverlap = true
+
 				// We will mark it as true after we say this square has already been claimed more than once
-				if inputGrid[x][y] == false {
+				if len(inputGrid[x][y]) == 1 {
 					*count++
-					inputGrid[x][y] = true
 				}
+				// At this point, we need to remove the overlapped ones from the map
+				for _, i := range inputGrid[x][y] {
+					delete(noOverlaps, i)
+				}
+
+				inputGrid[x][y] = append(inputGrid[x][y], c.id)
 			}
 		}
+	}
+	if !hasOverlap {
+		noOverlaps[c.id] = struct{}{}
 	}
 }
 
@@ -134,8 +145,9 @@ func main() {
 	}
 	defer inputFile.Close()
 
-	inputGrid := make(map[int]map[int]bool)
+	inputGrid := make(map[int]map[int][]int)
 	count := 0
+	noOverlaps := make(map[int]struct{})
 
 	scanner := bufio.NewScanner(inputFile)
 	for scanner.Scan() {
@@ -143,7 +155,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		c.updateGrid(inputGrid, &count)
+
+		c.updateGrid(inputGrid, &count, noOverlaps)
 	}
 	fmt.Println(count)
+	fmt.Println(noOverlaps)
 }
